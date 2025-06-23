@@ -3,6 +3,7 @@ package dialog
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/AlecAivazis/survey/v2"
 	"messenger_client/internal/models"
 	"net/http"
 )
@@ -38,4 +39,40 @@ func (c *Client) GetUserDialogs(userID int32, limit, offset *int32) (*models.Get
 	}
 
 	return &result, nil
+}
+
+func GetUserDialogsCase(dialogClient *Client) {
+	var userID int32
+	var limit, offset int32
+	var applyLimit, applyOffset bool
+
+	_ = survey.AskOne(&survey.Input{Message: "Введите ID пользователя:"}, &userID)
+	_ = survey.AskOne(&survey.Confirm{Message: "Хотите указать лимит?", Default: false}, &applyLimit)
+	if applyLimit {
+		_ = survey.AskOne(&survey.Input{Message: "Введите лимит:"}, &limit)
+	}
+
+	_ = survey.AskOne(&survey.Confirm{Message: "Хотите указать, сколько диалогов пропустить?", Default: false}, &applyOffset)
+	if applyOffset {
+		_ = survey.AskOne(&survey.Input{Message: "Введите, сколько диалогов пропустить:"}, &offset)
+	}
+
+	var limitPtr, offsetPtr *int32
+	if applyLimit {
+		limitPtr = &limit
+	}
+	if applyOffset {
+		offsetPtr = &offset
+	}
+
+	resp, err := dialogClient.GetUserDialogs(userID, limitPtr, offsetPtr)
+	if err != nil {
+		fmt.Println("Ошибка при получении списка диалогов:", err)
+		return
+	}
+
+	fmt.Println("Диалоги пользователя:")
+	for _, dlg := range resp.Dialogs {
+		fmt.Printf("ID: %d, Последнее сообщение: %s\n", dlg.DialogID, dlg.LastMessage)
+	}
 }

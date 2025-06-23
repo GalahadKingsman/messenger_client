@@ -4,8 +4,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/AlecAivazis/survey/v2"
+	"io"
 	"messenger_client/internal/models"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -47,10 +51,69 @@ func (c *Client) CreateUser(req models.CreateUserRequest) (*models.CreateUserRes
 		return nil, fmt.Errorf("API Gateway вернул статус %d", resp.StatusCode)
 	}
 
-	var result models.CreateUserResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+	rawBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("не удалось прочитать ответ: %w", err)
+	}
+
+	var gatewayResponse struct {
+		Success string `json:"success"`
+	}
+	if err := json.Unmarshal(rawBody, &gatewayResponse); err != nil {
 		return nil, fmt.Errorf("не удалось распарсить ответ: %w", err)
 	}
 
-	return &result, nil
+	id, err := extractIDFromSuccessMessage(gatewayResponse.Success)
+	if err != nil {
+		return nil, fmt.Errorf("не удалось извлечь ID из ответа: %w", err)
+	}
+
+	return &models.CreateUserResponse{
+		ID:      id,
+		Success: gatewayResponse.Success,
+	}, nil
+}
+
+// Вспомогательная функция для извлечения ID из строки
+func extractIDFromSuccessMessage(msg string) (int64, error) {
+	prefix := "Пользователь успешно создан с ID: "
+	if !strings.HasPrefix(msg, prefix) {
+		return 0, fmt.Errorf("неверный формат сообщения")
+	}
+
+	idStr := strings.TrimPrefix(msg, prefix)
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("не удалось преобразовать ID в число: %w", err)
+	}
+
+	return id, nil
+}
+
+func CreateUserCase(userClient *Client) {
+	var login, password, firstName, lastName, email, phone string
+
+	_ = survey.AskOne(&survey.Input{Message: "Введите имя пользователя (login):"}, &login)
+	_ = survey.AskOne(&survey.Input{Message: "Введите пароль:"}, &password)
+	_ = survey.AskOne(&survey.Input{Message: "Введите имя:"}, &firstName)
+	_ = survey.AskOne(&survey.Input{Message: "Введите фамилию:"}, &lastName)
+	_ = survey.AskOne(&survey.Input{Message: "Введите email:"}, &email)
+	_ = survey.AskOne(&survey.Input{Message: "Введите телефон:"}, &phone)
+
+	req := models.CreateUserRequest{
+		Login:     login,
+		Password:  password,
+		FirstName: firstName,
+		LastName:  lastName,
+		Email:     email,
+		Phone:     phone,
+	}
+
+	resp, err := userClient.CreateUser(req)
+	if err != nil {
+		fmt.Println("Ошибка при создании пользователя:", err)
+		return
+	}
+
+	fmt.Println("Пользователь успешно создан, ID:", resp.ID)
 }

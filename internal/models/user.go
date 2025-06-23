@@ -12,7 +12,8 @@ type CreateUserRequest struct {
 }
 
 type CreateUserResponse struct {
-	Id int64 `json:"ID"`
+	Success string `json:"success"`
+	ID      int64  `json:"-"`
 }
 
 type Client struct {

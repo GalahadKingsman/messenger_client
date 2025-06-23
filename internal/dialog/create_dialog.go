@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/AlecAivazis/survey/v2"
 	"messenger_client/internal/models"
 	"net/http"
 	"time"
@@ -53,4 +54,27 @@ func (c *Client) CreateDialog(req models.CreateDialogRequest) (*models.CreateDia
 	}
 
 	return &result, nil
+}
+
+func CreateDialogCase(dialogClient *Client) {
+	var userID, peerID int
+	var dialogName string
+
+	_ = survey.AskOne(&survey.Input{Message: "Введите свой UserID:"}, &userID)
+	_ = survey.AskOne(&survey.Input{Message: "Введите PeerID собеседника:"}, &peerID)
+	_ = survey.AskOne(&survey.Input{Message: "Введите название диалога:"}, &dialogName)
+
+	req := models.CreateDialogRequest{
+		UserID:     int32(userID),
+		PeerID:     int32(peerID),
+		DialogName: dialogName,
+	}
+
+	resp, err := dialogClient.CreateDialog(req)
+	if err != nil {
+		fmt.Println("Ошибка при создании диалога:", err)
+		return
+	}
+
+	fmt.Println("Диалог успешно создан, ID:", resp.DialogID)
 }

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/AlecAivazis/survey/v2"
 	"messenger_client/internal/models"
 	"net/http"
 )
@@ -38,4 +39,22 @@ func (c *Client) Login(req models.LoginRequest) (*models.LoginResponse, error) {
 	}
 
 	return &result, nil
+}
+
+func LoginCase(userClient *Client) {
+	var login, password string
+
+	_ = survey.AskOne(&survey.Input{Message: "Введите имя пользователя (login):"}, &login)
+	_ = survey.AskOne(&survey.Input{Message: "Введите пароль:"}, &password)
+
+	req := models.LoginRequest{
+		Login:    login,
+		Password: password,
+	}
+	resp, err := userClient.Login(req)
+	if err != nil {
+		fmt.Println("Ошибка при входе:", err)
+		return
+	}
+	fmt.Println("Ваш ID", resp.UserID)
 }

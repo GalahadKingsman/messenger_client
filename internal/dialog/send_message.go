@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/AlecAivazis/survey/v2"
 	"messenger_client/internal/models"
 	"net/http"
 )
@@ -38,4 +39,27 @@ func (c *Client) SendMessage(req models.SendMessageRequest) (*models.SendMessage
 	}
 
 	return &result, nil
+}
+
+func SendMessageCase(dialogClient *Client) {
+	var dialogID, userID int32
+	var text string
+
+	_ = survey.AskOne(&survey.Input{Message: "Введите ID диалога:"}, &dialogID)
+	_ = survey.AskOne(&survey.Input{Message: "Введите свой UserID:"}, &userID)
+	_ = survey.AskOne(&survey.Input{Message: "Введите текст сообщения:"}, &text)
+
+	req := models.SendMessageRequest{
+		DialogID: dialogID,
+		UserID:   userID,
+		Text:     text,
+	}
+
+	resp, err := dialogClient.SendMessage(req)
+	if err != nil {
+		fmt.Println("Ошибка при отправке сообщения:", err)
+		return
+	}
+
+	fmt.Printf("Сообщение отправлено, ID: %d, Timestamp: %s\n", resp.MessageID, resp.Timestamp)
 }
