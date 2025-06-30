@@ -29,4 +29,5 @@ type LoginRequest struct {
 type LoginResponse struct {
 	Message string `json:"message"`
 	UserID  int64  `json:"user_id,omitempty"`
+	Token   string `json:"token"`
 }

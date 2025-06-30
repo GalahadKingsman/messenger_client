@@ -7,6 +7,8 @@ import (
 	"github.com/AlecAivazis/survey/v2"
 	"messenger_client/internal/models"
 	"net/http"
+	"os"
+	"path/filepath"
 )
 
 func (c *Client) Login(req models.LoginRequest) (*models.LoginResponse, error) {
@@ -41,20 +43,36 @@ func (c *Client) Login(req models.LoginRequest) (*models.LoginResponse, error) {
 	return &result, nil
 }
 
-func LoginCase(userClient *Client) {
+func LoginCase(userClient *Client) bool {
 	var login, password string
 
-	_ = survey.AskOne(&survey.Input{Message: "Введите имя пользователя (login):"}, &login)
-	_ = survey.AskOne(&survey.Input{Message: "Введите пароль:"}, &password)
+	_ = survey.AskOne(&survey.Input{Message: "Введите имя пользователя:"}, &login)
+	_ = survey.AskOne(&survey.Password{Message: "Введите пароль:"}, &password)
 
 	req := models.LoginRequest{
 		Login:    login,
 		Password: password,
 	}
+
 	resp, err := userClient.Login(req)
 	if err != nil {
 		fmt.Println("Ошибка при входе:", err)
-		return
+		return false
 	}
-	fmt.Println("Ваш ID", resp.UserID)
+
+	if resp.Token == "" {
+		fmt.Println("Неверные данные")
+		return false
+	}
+
+	// Сохраняем токен
+	home, _ := os.UserHomeDir()
+	tokenPath := filepath.Join(home, ".messenger_token")
+	if err := os.WriteFile(tokenPath, []byte(resp.Token), 0600); err != nil {
+		fmt.Println("Не удалось сохранить токен:", err)
+		return false
+	}
+
+	fmt.Println("Успешный вход. Ваш ID:", resp.UserID)
+	return true
 }
