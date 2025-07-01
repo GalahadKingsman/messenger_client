@@ -1,34 +1,40 @@
 package users
 
 import (
+	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"github.com/AlecAivazis/survey/v2"
 	"messenger_client/internal/models"
 	"net/http"
-	"net/url"
 )
 
-func (c *Client) GetUsers(params map[string]string) ([]models.CreateUserRequest, error) {
+func (c *Client) GetUsers(
+	ctx context.Context,
+	params map[string]string,
+	token string,
+) ([]models.UserResponse, error) {
+	// 1) Собираем URL
 	endpoint := fmt.Sprintf("%s/users/get", c.APIGatewayURL)
-
-	query := url.Values{}
-	for key, value := range params {
-		if value != "" {
-			query.Set(key, value)
-		}
-	}
-
-	if len(query) == 0 {
-		return nil, errors.New("нужно указать хотя бы один параметр")
-	}
-
-	reqURL := fmt.Sprintf("%s?%s", endpoint, query.Encode())
-
-	resp, err := c.HTTPClient.Get(reqURL)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
-		return nil, fmt.Errorf("ошибка при запросе к API Gateway: %w", err)
+		return nil, fmt.Errorf("не удалось создать запрос: %w", err)
+	}
+
+	// 2) Добавляем все фильтры в query
+	q := req.URL.Query()
+	for k, v := range params {
+		q.Add(k, v)
+	}
+	req.URL.RawQuery = q.Encode()
+
+	// 3) Добавляем заголовок
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	// 4) Выполняем запрос
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("ошибка при выполнении запроса: %w", err)
 	}
 	defer resp.Body.Close()
 
@@ -36,20 +42,26 @@ func (c *Client) GetUsers(params map[string]string) ([]models.CreateUserRequest,
 		return nil, fmt.Errorf("API Gateway вернул статус %d", resp.StatusCode)
 	}
 
-	var result struct {
-		Users []models.CreateUserRequest `json:"users"`
+	// 5) Десериализуем обёртку
+	var wrapper struct {
+		Users []models.UserResponse `json:"users"`
 	}
-
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+	if err := json.NewDecoder(resp.Body).Decode(&wrapper); err != nil {
 		return nil, fmt.Errorf("не удалось распарсить ответ: %w", err)
 	}
 
-	return result.Users, nil
+	return wrapper.Users, nil
 }
 
-func GetUsersCase(userClient *Client) {
-	params := make(map[string]string)
+func (u *UserCase) GetUsersCase() {
+	// 1) Проверка, что мы залогинены
+	if u.token == "" {
+		fmt.Println("Ошибка: необходимо сначала выполнить вход.")
+		return
+	}
 
+	// 2) Собираем фильтры
+	params := make(map[string]string)
 	var login, firstName, lastName, email, phone string
 
 	_ = survey.AskOne(&survey.Input{Message: "Фильтр по логину (оставьте пустым, если не нужен):"}, &login)
@@ -79,15 +91,18 @@ func GetUsersCase(userClient *Client) {
 		return
 	}
 
-	users, err := userClient.GetUsers(params)
+	// 3) Делаем запрос к API, передавая токен
+	ctx := context.Background()
+	usersList, err := u.client.GetUsers(ctx, params, u.token)
 	if err != nil {
 		fmt.Println("Ошибка при получении пользователей:", err)
 		return
 	}
 
+	// 4) Выводим результат
 	fmt.Println("Пользователи:")
-	for _, u := range users {
-		fmt.Printf("Login: %s, Email: %s, Имя: %s %s, Телефон: %s\n",
-			u.Login, u.Email, u.FirstName, u.LastName, u.Phone)
+	for _, usr := range usersList {
+		fmt.Printf("ID:%d Login:%s Имя:%s %s Email:%s Телефон:%s\n",
+			usr.ID, usr.Login, usr.FirstName, usr.LastName, usr.Email, usr.Phone)
 	}
 }

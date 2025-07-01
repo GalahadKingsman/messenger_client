@@ -2,15 +2,16 @@ package dialog
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/AlecAivazis/survey/v2"
+	"io"
 	"messenger_client/internal/models"
 	"net/http"
-	"time"
 )
 
-func (c *Client) CreateDialog(req models.CreateDialogRequest) (*models.CreateDialogResponse, error) {
+func (c *Client) CreateDialog(ctx context.Context, req models.CreateDialogRequest, token string) (*models.CreateDialogResponse, error) {
 	endpoint := fmt.Sprintf("%s/dialog/create", c.APIGatewayURL)
 
 	body, err := json.Marshal(req)
@@ -18,11 +19,15 @@ func (c *Client) CreateDialog(req models.CreateDialogRequest) (*models.CreateDia
 		return nil, fmt.Errorf("не удалось сериализовать запрос: %w", err)
 	}
 
-	httpReq, err := http.NewRequest(http.MethodPost, endpoint, bytes.NewReader(body))
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
 	if err != nil {
 		return nil, fmt.Errorf("не удалось создать запрос: %w", err)
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
+
+	if token != "" {
+		httpReq.Header.Set("Authorization", "Bearer "+token)
+	}
 
 	resp, err := c.HTTPClient.Do(httpReq)
 	if err != nil {
@@ -34,15 +39,25 @@ func (c *Client) CreateDialog(req models.CreateDialogRequest) (*models.CreateDia
 		return nil, fmt.Errorf("API Gateway вернул статус %d", resp.StatusCode)
 	}
 
+	raw, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("не удалось прочитать ответ: %w", err)
+	}
+
 	var result models.CreateDialogResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+	if err := json.Unmarshal(raw, &result); err != nil {
 		return nil, fmt.Errorf("не удалось распарсить ответ: %w", err)
 	}
 
 	return &result, nil
 }
 
-func CreateDialogCase(dialogClient *Client) {
+func (d *DialogCase) CreateDialogCase() {
+	if d.token == "" {
+		fmt.Println("Ошибка: необходимо сначала выполнить вход.")
+		return
+	}
+
 	var userID, peerID int
 	var dialogName string
 
@@ -56,7 +71,8 @@ func CreateDialogCase(dialogClient *Client) {
 		DialogName: dialogName,
 	}
 
-	resp, err := dialogClient.CreateDialog(req)
+	// вызываем обновлённый клиентский метод
+	resp, err := d.client.CreateDialog(context.Background(), req, d.token)
 	if err != nil {
 		fmt.Println("Ошибка при создании диалога:", err)
 		return

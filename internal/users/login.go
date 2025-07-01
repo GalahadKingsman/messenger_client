@@ -41,7 +41,7 @@ func (c *Client) Login(req models.LoginRequest) (*models.LoginResponse, error) {
 	return &result, nil
 }
 
-func LoginCase(userClient *Client) bool {
+func (u *UserCase) LoginCase() bool {
 	var login, password string
 
 	_ = survey.AskOne(&survey.Input{Message: "Введите имя пользователя:"}, &login)
@@ -52,7 +52,7 @@ func LoginCase(userClient *Client) bool {
 		Password: password,
 	}
 
-	resp, err := userClient.Login(req)
+	resp, err := u.client.Login(req)
 	if err != nil {
 		fmt.Println("Ошибка при входе:", err)
 		return false
@@ -62,6 +62,8 @@ func LoginCase(userClient *Client) bool {
 		fmt.Println("Неверные данные")
 		return false
 	}
+
+	u.token = resp.Token
 
 	fmt.Println("Успешный вход. Ваш ID:", resp.UserID)
 	return true

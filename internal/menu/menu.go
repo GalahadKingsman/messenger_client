@@ -10,24 +10,19 @@ import (
 	"messenger_client/internal/users"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strings"
 	"sync"
 	"time"
 )
 
-var tokenPath string
 
 const apiURL = "http://localhost:8080"
 
-func init() {
-	home, _ := os.UserHomeDir()
-	tokenPath = filepath.Join(home, ".messenger_token")
-}
-
 func Run() {
-	userClient := users.NewClient(apiURL)
-	dialogClient := dialog.NewClient(apiURL)
+	baseClientUser := users.NewClient(apiURL)
+	baseClientDialog := dialog.NewClient(apiURL)
+	userCase := users.NewUserCase(baseClientUser)
+	dialogCase := dialog.NewDialogCase(baseClientDialog)
 
 	for {
 		choice := ""
@@ -39,11 +34,12 @@ func Run() {
 
 		switch choice {
 		case "Войти":
-			if users.LoginCase(userClient) {
-				runUserMenu(userClient, dialogClient)
+			if userCase.LoginCase() {
+				dialogCase.SetToken(userCase.Token())
+				runUserMenu(userCase, dialogCase)
 			}
 		case "Зарегистрироваться":
-			users.CreateUserCase(userClient)
+			userCase.CreateUserCase()
 		case "Выход":
 			fmt.Println("Выход.")
 			os.Exit(0)
@@ -51,13 +47,13 @@ func Run() {
 	}
 }
 
-func runUserMenu(userClient *users.Client, dialogClient *dialog.Client) {
+func runUserMenu(userCase *users.UserCase, dialogCase *dialog.DialogCase) {
 	ctx, cancel := context.WithCancel(context.Background())
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		listenLoop(ctx, tokenPath)
+		listenLoop(ctx, userCase.Token())
 	}()
 
 	for {
@@ -78,17 +74,16 @@ func runUserMenu(userClient *users.Client, dialogClient *dialog.Client) {
 
 		switch choice {
 		case "Получить пользователей":
-			users.GetUsersCase(userClient)
+			userCase.GetUsersCase()
 		case "Создать диалог":
-			dialog.CreateDialogCase(dialogClient)
+			dialogCase.CreateDialogCase()
 		case "Получить список диалогов":
-			dialog.GetUserDialogsCase(dialogClient)
+			dialogCase.GetUserDialogsCase()
 		case "Отправить сообщение":
-			dialog.SendMessageCase(dialogClient)
+			dialogCase.SendMessageCase()
 		case "Получить сообщения диалога":
-			dialog.GetDialogMessagesCase(dialogClient)
+			dialogCase.GetDialogMessagesCase()
 		case "Выйти из аккаунта":
-			os.Remove(tokenPath)
 			cancel()
 			wg.Wait()
 			return
@@ -100,13 +95,13 @@ func runUserMenu(userClient *users.Client, dialogClient *dialog.Client) {
 	}
 }
 
-func listenLoop(ctx context.Context, tokenPath string) {
+func listenLoop(ctx context.Context, token string) {
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		default:
-			token, err := os.ReadFile(tokenPath)
+			token, err := os.ReadFile(token)
 			if err != nil {
 				time.Sleep(2 * time.Second)
 				continue

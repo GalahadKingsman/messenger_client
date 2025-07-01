@@ -27,3 +27,7 @@ func NewClient(apiGatewayURL string) *Client {
 		},
 	}
 }
+
+func (d *DialogCase) SetToken(tok string) {
+	d.token = tok
+}

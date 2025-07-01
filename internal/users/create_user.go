@@ -75,7 +75,7 @@ func extractIDFromSuccessMessage(msg string) (int64, error) {
 	return id, nil
 }
 
-func (*UserCase) CreateUserCase(userClient *Client) {
+func (u *UserCase) CreateUserCase() {
 	var login, password, firstName, lastName, email, phone string
 
 	_ = survey.AskOne(&survey.Input{Message: "Введите имя пользователя (login):"}, &login)
@@ -94,7 +94,7 @@ func (*UserCase) CreateUserCase(userClient *Client) {
 		Phone:     phone,
 	}
 
-	resp, err := userClient.CreateUser(req)
+	resp, err := u.client.CreateUser(req)
 	if err != nil {
 		fmt.Println("Ошибка при создании пользователя:", err)
 		return
