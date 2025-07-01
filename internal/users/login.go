@@ -7,8 +7,6 @@ import (
 	"github.com/AlecAivazis/survey/v2"
 	"messenger_client/internal/models"
 	"net/http"
-	"os"
-	"path/filepath"
 )
 
 func (c *Client) Login(req models.LoginRequest) (*models.LoginResponse, error) {
@@ -62,14 +60,6 @@ func LoginCase(userClient *Client) bool {
 
 	if resp.Token == "" {
 		fmt.Println("Неверные данные")
-		return false
-	}
-
-	// Сохраняем токен
-	home, _ := os.UserHomeDir()
-	tokenPath := filepath.Join(home, ".messenger_token")
-	if err := os.WriteFile(tokenPath, []byte(resp.Token), 0600); err != nil {
-		fmt.Println("Не удалось сохранить токен:", err)
 		return false
 	}
 

@@ -26,7 +26,6 @@ func init() {
 }
 
 func Run() {
-	apiURL := "http://localhost:8080"
 	userClient := users.NewClient(apiURL)
 	dialogClient := dialog.NewClient(apiURL)
 

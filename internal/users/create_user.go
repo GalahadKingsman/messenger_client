@@ -10,22 +10,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"time"
 )
-
-type Client struct {
-	APIGatewayURL string
-	HTTPClient    *http.Client
-}
-
-func NewClient(apiGatewayURL string) *Client {
-	return &Client{
-		APIGatewayURL: apiGatewayURL,
-		HTTPClient: &http.Client{
-			Timeout: 5 * time.Second,
-		},
-	}
-}
 
 func (c *Client) CreateUser(req models.CreateUserRequest) (*models.CreateUserResponse, error) {
 	endpoint := fmt.Sprintf("%s/users/create", c.APIGatewayURL)
@@ -90,7 +75,7 @@ func extractIDFromSuccessMessage(msg string) (int64, error) {
 	return id, nil
 }
 
-func CreateUserCase(userClient *Client) {
+func (*UserCase) CreateUserCase(userClient *Client) {
 	var login, password, firstName, lastName, email, phone string
 
 	_ = survey.AskOne(&survey.Input{Message: "Введите имя пользователя (login):"}, &login)

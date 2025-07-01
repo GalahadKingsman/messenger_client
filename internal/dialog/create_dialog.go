@@ -10,20 +10,6 @@ import (
 	"time"
 )
 
-type Client struct {
-	APIGatewayURL string
-	HTTPClient    *http.Client
-}
-
-func NewClient(apiGatewayURL string) *Client {
-	return &Client{
-		APIGatewayURL: apiGatewayURL,
-		HTTPClient: &http.Client{
-			Timeout: 5 * time.Second,
-		},
-	}
-}
-
 func (c *Client) CreateDialog(req models.CreateDialogRequest) (*models.CreateDialogResponse, error) {
 	endpoint := fmt.Sprintf("%s/dialog/create", c.APIGatewayURL)
 
