@@ -4,47 +4,40 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"messenger_client/internal/models"
 	"net/http"
-	"os"
 	"sync"
 	"time"
 )
 
-type Notification struct {
-	From    string `json:"from"`
-	Message string `json:"message"`
-}
-
-func ListenNotifications(ctx context.Context, wg *sync.WaitGroup, tokenPath string) {
+func (nc *NotificationCase) Listen(ctx context.Context, wg *sync.WaitGroup) {
 	defer wg.Done()
-
-	token, err := os.ReadFile(tokenPath)
-	if err != nil {
-		fmt.Println("❌ Не удалось прочитать токен:", err)
-		return
-	}
-
-	client := &http.Client{}
-
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		default:
-			req, _ := http.NewRequest("GET", "http://localhost:8080/notifications/longpoll", nil)
-			req.Header.Set("Authorization", "Bearer "+string(token))
+			req, _ := http.NewRequestWithContext(ctx,
+				"GET",
+				nc.client.APIGatewayURL+"/notifications/longpoll",
+				nil,
+			)
+			req.Header.Set("Authorization", "Bearer "+nc.token)
 
-			resp, err := client.Do(req)
+			resp, err := nc.client.HTTPClient.Do(req)
 			if err != nil {
 				time.Sleep(2 * time.Second)
 				continue
 			}
-
+			if resp.StatusCode == http.StatusGatewayTimeout {
+				resp.Body.Close()
+				continue
+			}
 			if resp.StatusCode == http.StatusOK {
-				var notifs []Notification
+				var notifs []models.Notification
 				if err := json.NewDecoder(resp.Body).Decode(&notifs); err == nil {
 					for _, n := range notifs {
-						fmt.Printf("\n🔔 %s: %s\n", n.From, n.Message)
+						fmt.Printf("\n📩 Сообщение от %s: %s\n", n.From, n.Message)
 					}
 				}
 			}

@@ -2,87 +2,98 @@ package menu
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"github.com/AlecAivazis/survey/v2"
+	"github.com/chzyer/readline"
+	"log"
 	"messenger_client/internal/dialog"
 	"messenger_client/internal/notifications"
 	"messenger_client/internal/users"
-	"net/http"
 	"os"
 	"strings"
 	"sync"
-	"time"
 )
 
-
-const apiURL = "http://localhost:8080"
+const apiURL = "http://127.0.0.1:8080"
 
 func Run() {
-	baseClientUser := users.NewClient(apiURL)
-	baseClientDialog := dialog.NewClient(apiURL)
-	userCase := users.NewUserCase(baseClientUser)
-	dialogCase := dialog.NewDialogCase(baseClientDialog)
+	// Инициализация readline
+	rl, err := readline.NewEx(&readline.Config{
+		Prompt:      "> ",
+		HistoryFile: ".messenger_history",
+	})
+	if err != nil {
+		log.Fatalf("readline init error: %v", err)
+	}
+	defer rl.Close()
+
+	// Инициализация клиентов и use-cases
+	userClient := users.NewClient(apiURL)
+	dlgClient := dialog.NewClient(apiURL)
+	notifClient := notifications.NewClient(apiURL)
+
+	userCase := users.NewUserCase(userClient)
+	dlgCase := dialog.NewDialogCase(dlgClient)
+	notifCase := notifications.NewNotCase(notifClient)
 
 	for {
-		choice := ""
-		prompt := &survey.Select{
-			Message: "Выберите действие:",
-			Options: []string{"Войти", "Зарегистрироваться", "Выход"},
+		fmt.Println("\nДоступные команды: Войти | Зарегистрироваться | Выход")
+		line, err := rl.Readline()
+		if err != nil {
+			break
 		}
-		_ = survey.AskOne(prompt, &choice)
-
-		switch choice {
+		cmd := strings.TrimSpace(line)
+		switch cmd {
 		case "Войти":
 			if userCase.LoginCase() {
-				dialogCase.SetToken(userCase.Token())
-				runUserMenu(userCase, dialogCase)
+				// Устанавливаем токен
+				token := userCase.Token()
+				dlgCase.SetToken(token)
+				notifCase.SetToken(token)
+				// Переходим в меню пользователя
+				runUserMenu(rl, userCase, dlgCase, notifCase)
 			}
 		case "Зарегистрироваться":
 			userCase.CreateUserCase()
 		case "Выход":
 			fmt.Println("Выход.")
-			os.Exit(0)
+			return
+		default:
+			fmt.Println("Неизвестная команда:", cmd)
 		}
 	}
 }
 
-func runUserMenu(userCase *users.UserCase, dialogCase *dialog.DialogCase) {
+func runUserMenu(
+	rl *readline.Instance,
+	userCase *users.UserCase,
+	dlgCase *dialog.DialogCase,
+	notifCase *notifications.NotificationCase,
+) {
 	ctx, cancel := context.WithCancel(context.Background())
 	var wg sync.WaitGroup
+
+	// Запускаем подписку на уведомления
 	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		listenLoop(ctx, userCase.Token())
-	}()
+	go notifCase.Listen(ctx, &wg)
 
 	for {
-		choice := ""
-		prompt := &survey.Select{
-			Message: "Выберите действие:",
-			Options: []string{
-				"Получить пользователей",
-				"Создать диалог",
-				"Получить список диалогов",
-				"Отправить сообщение",
-				"Получить сообщения диалога",
-				"Выйти из аккаунта",
-				"Завершить приложение",
-			},
+		fmt.Println("\nДоступные команды: Получить пользователей | Создать диалог | Получить список диалогов | Отправить сообщение | Получить сообщения диалога | Выйти из аккаунта | Завершить приложение")
+		line, err := rl.Readline()
+		if err != nil {
+			break
 		}
-		_ = survey.AskOne(prompt, &choice)
-
-		switch choice {
+		cmd := strings.TrimSpace(line)
+		switch cmd {
 		case "Получить пользователей":
 			userCase.GetUsersCase()
 		case "Создать диалог":
-			dialogCase.CreateDialogCase()
+			dlgCase.CreateDialogCase()
 		case "Получить список диалогов":
-			dialogCase.GetUserDialogsCase()
+			dlgCase.GetUserDialogsCase()
 		case "Отправить сообщение":
-			dialogCase.SendMessageCase()
+			dlgCase.SendMessageCase()
 		case "Получить сообщения диалога":
-			dialogCase.GetDialogMessagesCase()
+			dlgCase.GetDialogMessagesCase()
 		case "Выйти из аккаунта":
 			cancel()
 			wg.Wait()
@@ -91,44 +102,8 @@ func runUserMenu(userCase *users.UserCase, dialogCase *dialog.DialogCase) {
 			cancel()
 			wg.Wait()
 			os.Exit(0)
-		}
-	}
-}
-
-func listenLoop(ctx context.Context, token string) {
-	for {
-		select {
-		case <-ctx.Done():
-			return
 		default:
-			token, err := os.ReadFile(token)
-			if err != nil {
-				time.Sleep(2 * time.Second)
-				continue
-			}
-
-			req, _ := http.NewRequestWithContext(ctx, "GET", "http://localhost:8082/notifications/longpoll", nil)
-			req.Header.Set("Authorization", "Bearer "+strings.TrimSpace(string(token)))
-
-			resp, err := http.DefaultClient.Do(req)
-			if err != nil {
-				time.Sleep(2 * time.Second)
-				continue
-			}
-
-			if resp.StatusCode == http.StatusGatewayTimeout {
-				resp.Body.Close()
-				continue // снова ждать
-			}
-
-			var notifs []notifications.Notification
-			err = json.NewDecoder(resp.Body).Decode(&notifs)
-			resp.Body.Close()
-			if err == nil {
-				for _, n := range notifs {
-					fmt.Printf("\n📩 Сообщение от %s: %s\n", n.From, n.Message)
-				}
-			}
+			fmt.Println("Неизвестная команда:", cmd)
 		}
 	}
 }
