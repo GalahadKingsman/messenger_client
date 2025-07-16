@@ -13,7 +13,7 @@ import (
 	"sync"
 )
 
-var apiURL = os.Getenv("API_URL")
+const apiURL = "http://127.0.0.1:8080"
 
 var mainCompleter = readline.NewPrefixCompleter(
 	readline.PcItem("Войти"),
