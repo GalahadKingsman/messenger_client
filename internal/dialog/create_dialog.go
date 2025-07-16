@@ -6,8 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/AlecAivazis/survey/v2"
+	"github.com/GalahadKingsman/messenger_client/internal/models"
 	"io"
-	"messenger_client/internal/models"
 	"net/http"
 )
 

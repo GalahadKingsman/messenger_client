@@ -20,10 +20,17 @@ type Client struct {
 }
 
 func NewClient(apiGatewayURL string) *Client {
+	tr := &http.Transport{
+		DisableKeepAlives:   true,
+		MaxIdleConns:        10,
+		MaxIdleConnsPerHost: 10,
+		IdleConnTimeout:     30 * time.Second,
+	}
 	return &Client{
 		APIGatewayURL: apiGatewayURL,
 		HTTPClient: &http.Client{
-			Timeout: 5 * time.Second,
+			Transport: tr,
+			Timeout:   5 * time.Second,
 		},
 	}
 }

@@ -3,23 +3,40 @@ package menu
 import (
 	"context"
 	"fmt"
+	"github.com/GalahadKingsman/messenger_client/internal/dialog"
+	"github.com/GalahadKingsman/messenger_client/internal/notifications"
+	"github.com/GalahadKingsman/messenger_client/internal/users"
 	"github.com/chzyer/readline"
 	"log"
-	"messenger_client/internal/dialog"
-	"messenger_client/internal/notifications"
-	"messenger_client/internal/users"
 	"os"
 	"strings"
 	"sync"
 )
 
-const apiURL = "http://127.0.0.1:8080"
+var apiURL = os.Getenv("API_URL")
+
+var mainCompleter = readline.NewPrefixCompleter(
+	readline.PcItem("Войти"),
+	readline.PcItem("Зарегистрироваться"),
+	readline.PcItem("Выход"),
+)
+
+var userCompleter = readline.NewPrefixCompleter(
+	readline.PcItem("Получить пользователей"),
+	readline.PcItem("Создать диалог"),
+	readline.PcItem("Получить список диалогов"),
+	readline.PcItem("Отправить сообщение"),
+	readline.PcItem("Получить сообщения диалога"),
+	readline.PcItem("Выйти из аккаунта"),
+	readline.PcItem("Завершить приложение"),
+)
 
 func Run() {
-	// Инициализация readline
+
 	rl, err := readline.NewEx(&readline.Config{
-		Prompt:      "> ",
-		HistoryFile: ".messenger_history",
+		Prompt:       "> ",
+		HistoryFile:  ".messenger_history",
+		AutoComplete: mainCompleter,
 	})
 	if err != nil {
 		log.Fatalf("readline init error: %v", err)
@@ -45,12 +62,14 @@ func Run() {
 		switch cmd {
 		case "Войти":
 			if userCase.LoginCase() {
-				// Устанавливаем токен
+
 				token := userCase.Token()
 				dlgCase.SetToken(token)
 				notifCase.SetToken(token)
-				// Переходим в меню пользователя
+				rl.Config.AutoComplete = userCompleter
+
 				runUserMenu(rl, userCase, dlgCase, notifCase)
+				rl.Config.AutoComplete = mainCompleter
 			}
 		case "Зарегистрироваться":
 			userCase.CreateUserCase()
@@ -72,7 +91,6 @@ func runUserMenu(
 	ctx, cancel := context.WithCancel(context.Background())
 	var wg sync.WaitGroup
 
-	// Запускаем подписку на уведомления
 	wg.Add(1)
 	go notifCase.Listen(ctx, &wg)
 

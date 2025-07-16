@@ -1,6 +1,8 @@
 package main
 
-import "messenger_client/internal/menu"
+import (
+	"github.com/GalahadKingsman/messenger_client/internal/menu"
+)
 
 func main() {
 

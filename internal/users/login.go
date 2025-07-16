@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/AlecAivazis/survey/v2"
-	"messenger_client/internal/models"
+	"github.com/GalahadKingsman/messenger_client/internal/models"
 	"net/http"
 )
 

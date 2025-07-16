@@ -1,4 +1,4 @@
-module messenger_client
+module github.com/GalahadKingsman/messenger_client
 
 go 1.23.0
 

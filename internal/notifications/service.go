@@ -21,9 +21,9 @@ func NewNotCase(client *Client) *NotificationCase {
 
 func NewClient(apiGatewayURL string) *Client {
 	tr := &http.Transport{
-		MaxIdleConns:        10,
-		MaxIdleConnsPerHost: 10,
-		IdleConnTimeout:     60 * time.Second,
+		MaxIdleConns:        1,
+		MaxIdleConnsPerHost: 1,
+		IdleConnTimeout:     5 * time.Minute,
 	}
 	httpClient := &http.Client{
 		Transport: tr,
